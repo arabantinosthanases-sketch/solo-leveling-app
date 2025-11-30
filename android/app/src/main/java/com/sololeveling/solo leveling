@@ -1,0 +1,83 @@
+package com.sololeveling
+
+import android.accessibilityservice.AccessibilityService
+import android.view.accessibility.AccessibilityEvent
+
+class BlockService : AccessibilityService() {
+    private val blockedApps = mutableSetOf<String>()
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.packageName == null) return
+        val packageName = event.packageName.toString()
+        if (blockedApps.contains(packageName)) {
+            performGlobalAction(GLOBAL_ACTION_HOME)
+        }
+    }
+
+    override fun onInterrupt() {}
+
+    fun blockApp(pkg: String) {
+        blockedApps.add(pkg)
+    }
+
+    fun unblockApp(pkg: String) {
+        blockedApps.remove(pkg)
+    }
+}package com.sololeveling
+
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class BlockModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+    override fun getName() = "Blocker"
+
+    @ReactMethod
+    fun block(packageName: String) {
+        val s = BlockService()
+        s.blockApp(packageName)
+    }
+
+    @ReactMethod
+    fun unblock(packageName: String) {
+        val s = BlockService()
+        s.unblockApp(packageName)
+    }
+}package com.sololeveling
+
+import android.app.Service
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.os.IBinder
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.WindowManager
+
+class OverlayService : Service() {
+    private lateinit var windowManager: WindowManager
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val view = LayoutInflater.from(this).inflate(R.layout.overlay_block, null)
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.CENTER
+
+        windowManager.addView(view, params)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+    }
+}
